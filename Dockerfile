@@ -12,7 +12,8 @@ RUN apt install -y ninja-build build-essential debhelper cdbs dpkg-dev autotools
 RUN mkdir /build && cd /build && git clone https://github.com/FreeRDP/FreeRDP.git && cd FreeRDP && git checkout 2.3.2
 WORKDIR /build/FreeRDP
 RUN cmake -DCHANNEL_URBDRC=ON -DWITH_DSP_FFMPEG=ON -DWITH_CUPS=ON -DWITH_PULSE=ON -DWITH_FAAC=ON -DWITH_FAAD2=ON \
-    -DWITH_GSM=ON -DWITH_SERVER=ON -DWITH_WAYLAND=OFF -DWITH_JPEG=ON -DMONOLITHIC_BUILD=ON -DBUILD_SHARED_LIBS=OFF -DWITH_X11=OFF .
+    -DWITH_GSM=ON -DWITH_SERVER=ON -DWITH_WAYLAND=OFF -DWITH_JPEG=ON -DMONOLITHIC_BUILD=ON -DBUILD_SHARED_LIBS=OFF -DWITH_X11=OFF \
+    -DWITH_PROXY_MODULES=ON .
 RUN cmake --build .
 RUN cmake --build . --target install
 
