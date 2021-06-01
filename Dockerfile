@@ -9,11 +9,18 @@ RUN apt install -y ninja-build build-essential debhelper cdbs dpkg-dev autotools
     libudev-dev libdbus-glib-1-dev uuid-dev libxml2-dev libgstreamer1.0-dev  libgstreamer-plugins-base1.0-dev \
     libfaad-dev libfaac-dev libavutil-dev libavcodec-dev libavresample-dev git libsystemd-dev
 
-RUN mkdir /build && cd /build && git clone https://github.com/FreeRDP/FreeRDP.git && cd FreeRDP && git checkout 2.3.2
+RUN mkdir /build && \
+    cd /build && \
+    git clone https://github.com/FreeRDP/FreeRDP.git && \
+    git clone https://github.com/alexandru-bagu/freerdp-proxy-external-target-resolve.git && \
+    cd FreeRDP && \
+    git checkout 06315d0 && \
+    cd server/proxy/modules && \
+    mkdir external-target-resolve && \
+    cp -a /build/freerdp-proxy-external-target-resolve/external-target-resolve/. external-target-resolve
 WORKDIR /build/FreeRDP
-COPY pf_server.c /build/FreeRDP/server/proxy
 RUN cmake -DCHANNEL_URBDRC=ON -DWITH_DSP_FFMPEG=ON -DWITH_CUPS=ON -DWITH_PULSE=ON -DWITH_FAAC=ON -DWITH_FAAD2=ON \
-    -DWITH_GSM=ON -DWITH_SERVER=ON -DWITH_WAYLAND=OFF -DWITH_JPEG=ON -DMONOLITHIC_BUILD=ON -DBUILD_SHARED_LIBS=OFF -DWITH_X11=OFF \
+    -DWITH_GSM=ON -DWITH_SERVER=ON -DWITH_WAYLAND=OFF -DWITH_JPEG=ON -DMONOLITHIC_BUILD=ON -DBUILD_SHARED_LIBS=ON -DWITH_X11=OFF \
     -DWITH_PROXY_MODULES=ON .
 RUN cmake --build .
 RUN cmake --build . --target install
@@ -23,6 +30,7 @@ USER root
 WORKDIR /root
 COPY config.ini /root
 COPY start.sh /root
+COPY freerdp-external-target-resolve.sh /root/freerdp-external-target-resolve
 RUN winpr-makecert -rdp -path . server
 EXPOSE 3389
 ENTRYPOINT /root/start.sh
