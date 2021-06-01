@@ -30,29 +30,11 @@ if [[ "$DEBUG" == "1" ]]; then
 fi
 
 # returning an invalid name will effectively disable the connection
-RESULT=unknown
+RESULT=
 
 LOWERUSERNAME="${Username,,}"
-if [[ "$LOWERUSERNAME" == "andrewf" ]]; then
-  RESULT=172.16.114.171
-elif [[ "$LOWERUSERNAME" == "joe" ]]; then
-  RESULT=172.16.114.172
-elif [[ "$LOWERUSERNAME" == "kyle" ]]; then
-  RESULT=172.16.114.173
-elif [[ "$LOWERUSERNAME" == "shane" ]]; then
-  RESULT=172.16.114.174
-elif [[ "$LOWERUSERNAME" == "dave" ]]; then
-  RESULT=172.16.114.175
-elif [[ "$LOWERUSERNAME" == "james" ]]; then
-  RESULT=172.16.114.176
-elif [[ "$LOWERUSERNAME" == "liz" ]]; then
-  RESULT=172.16.114.177
-elif [[ "$LOWERUSERNAME" == "cat" ]]; then
-  RESULT=172.16.114.178
 elif [[ "$LOWERUSERNAME" == "vdiadmin" ]]; then
-  RESULT=172.16.114.179
-elif [[ "$LOWERUSERNAME" == "user2" ]]; then
-  RESULT=172.16.114.180
+  RESULT=172.16.114.179:3389
 fi
 
 # 'printf' instead of 'echo' because echo appends '\n'
