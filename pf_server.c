@@ -47,30 +47,39 @@
 
 static psPeerReceiveChannelData server_receive_channel_data_original = NULL;
 
-static BOOL pf_server_parse_target_from_user(rdpSettings* settings, char** target, DWORD* port)
+static BOOL pf_server_parse_target_from_user(rdpContext* context, rdpSettings* settings, char** target, DWORD* port)
 {
-	*port = (DWORD)3389;
+  *port = (DWORD)3389;
   *target = NULL;
-  if(strstr(settings->Username, "andrewf")) {
-    *target = _strdup("172.16.114.171");
-  } else if(strstr(settings->Username, "joe")) {
-    *target = _strdup("172.16.114.172");
-  }  else if(strstr(settings->Username, "kyle")) {
-    *target = _strdup("172.16.114.173");
-  }  else if(strstr(settings->Username, "shane")) {
-    *target = _strdup("172.16.114.174");
-  }  else if(strstr(settings->Username, "dave")) {
-    *target = _strdup("172.16.114.175");
-  }  else if(strstr(settings->Username, "james")) {
-    *target = _strdup("172.16.114.176");
-  }  else if(strstr(settings->Username, "liz")) {
-    *target = _strdup("172.16.114.177");
-  }  else if(strstr(settings->Username, "cat")) {
-    *target = _strdup("172.16.114.178");
-  }  else if(strstr(settings->Username, "vdiadmin")) {
-    *target = _strdup("172.16.114.179");
-  }  else if(strstr(settings->Username, "user2")) {
-    *target = _strdup("172.16.114.180");
+  pServerContext* ps = (pServerContext*)context;
+  LOG_INFO(TAG, ps, "attempting to fetch target by username '%s'", settings->Username);
+  if(settings && settings->Username && strlen(settings->Username)) {
+    if(strstr(settings->Username, "andrewf")) {
+      *target = _strdup("172.16.114.171");
+    } else if(strstr(settings->Username, "joe")) {
+      *target = _strdup("172.16.114.172");
+    }  else if(strstr(settings->Username, "kyle")) {
+      *target = _strdup("172.16.114.173");
+    }  else if(strstr(settings->Username, "shane")) {
+      *target = _strdup("172.16.114.174");
+    }  else if(strstr(settings->Username, "dave")) {
+      *target = _strdup("172.16.114.175");
+    }  else if(strstr(settings->Username, "james")) {
+      *target = _strdup("172.16.114.176");
+    }  else if(strstr(settings->Username, "liz")) {
+      *target = _strdup("172.16.114.177");
+    }  else if(strstr(settings->Username, "cat")) {
+      *target = _strdup("172.16.114.178");
+    }  else if(strstr(settings->Username, "vdiadmin")) {
+      *target = _strdup("172.16.114.179");
+    }  else if(strstr(settings->Username, "user2")) {
+      *target = _strdup("172.16.114.180");
+    }
+    if(*target) {
+      LOG_INFO(TAG, ps, "target '%s' selected for username '%s'", *target, settings->Username);
+    } else {
+      LOG_INFO(TAG, ps, "target not selected for username '%s'", settings->Username);
+    }
   }
   return !(!(*target));
 }
@@ -135,7 +144,7 @@ static BOOL pf_server_get_target_info(rdpContext* context, rdpSettings* settings
 	LOG_INFO(TAG, ps, "fetching target from %s",
 	         config->UseLoadBalanceInfo ? "load-balance-info" : "config");
 
-  if(pf_server_parse_target_from_user(settings, &settings->ServerHostname,
+  if(pf_server_parse_target_from_user(context, settings, &settings->ServerHostname,
                                                     &settings->ServerPort))
     return TRUE;
 
