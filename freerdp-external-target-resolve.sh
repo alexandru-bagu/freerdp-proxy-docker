@@ -95,7 +95,7 @@ WHERE GE.name ='$AUTHDATA_USER' AND GE.type ='USER' LIMIT 1"`
     fi
   fi
 else
-  # Apache Guacamole is not valid
+  # Apache Guacamole Auth token is not valid
   exit 1
 fi
 
