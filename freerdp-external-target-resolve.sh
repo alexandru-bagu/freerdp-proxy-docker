@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# dependency binaries: mysql jq
+
 Username="${FreeRDP_Username:-}"
 ProxyUsername="${FreeRDP_ProxyUsername:-}"
 GatewayUsername="${FreeRDP_GatewayUsername:-}"
@@ -12,7 +15,12 @@ ProxyHostname="${FreeRDP_ProxyHostname:-}"
 GatewayHostname="${FreeRDP_GatewayHostname:-}"
 RoutingToken="${FreeRDP_RoutingToken:-}"
 
-DEBUG=0
+GUACAMOLE_API="${GUACAMOLE_API:-}"
+GUACAMOLE_DB_HOST="${GUACAMOLE_DB_HOST:-}"
+GUACAMOLE_DB_USER="${GUACAMOLE_DB_USER:-}"
+GUACAMOLE_DB_PASS="${GUACAMOLE_DB_PASS:-}"
+
+DEBUG=1
 
 if [[ "$DEBUG" == "1" ]]; then
   printf "Username=$Username\n" >&2 
@@ -32,9 +40,58 @@ fi
 # returning an invalid name will effectively disable the connection
 RESULT=
 
-LOWERUSERNAME="${Username,,}"
-elif [[ "$LOWERUSERNAME" == "vdiadmin" ]]; then
-  RESULT=172.16.114.179:3389
+# extract Apache Guacamole Auth Token and Connection Token from Routing Token:
+# example: "Auth: DEEFDCE0375390C69608BBE85435AE419CB3D8F763D34B3858A7E527B3AC9904; Conn: MQBjAG15c3Fs;"
+
+AUTHTOKEN=`echo "$RoutingToken" | grep -P 'Auth: ([a-f]|[A-F]|[0-9])+;' -o | sed "s/Auth: //g" | sed "s/;$//g"`
+CONNTOKEN=`echo "$RoutingToken" | grep -P 'Conn: (.*)+;' -o | sed "s/Conn: //g" | sed "s/;$//g"`
+
+# validate Apache Guacamole Auth Token:
+AUTHDATA=`curl "$GUACAMOLE_API/tokens" --data "token=$AUTHTOKEN" -s`
+AUTHDATA_TOKEN=`echo "$AUTHDATA" | jq ".authToken"`
+if echo "$AUTHDATA_TOKEN" | grep -q "$AUTHTOKEN"; then
+  AUTHDATA_USER=`echo "$AUTHDATA" | jq ".username"`
+  CONNDATA=`printf "$CONNTOKEN" | base64 -d | tr "\\0" "_"`
+  CONN_ID=`printf "$CONNDATA" | sed "s/_.*//g"`
+  ($(($CONN_ID + 0))) || CONN_ID=0 # ensure conn_id is number
+  CONN_TYPE=`printf "$CONNDATA" | sed "s/${CONN_ID}_//g" | sed "s/_.*//g"`
+  CONN_SRC=`printf "$CONNDATA" | sed "s/${CONN_ID}_${CONN_TYPE}_//g" | sed "s/_.*//g"`
+
+  if [[ "$CONN_ID" == "0" ]]; then
+    CONN_ID=`mysql -h"$GUACAMOLE_DB_HOST" -u"$GUACAMOLE_DB_USER" -p"$GUACAMOLE_DB_PASS" guac_db -N -s -e "SELECT GC.connection_id FROM guacamole_entity GE \
+INNER JOIN guacamole_user GU ON GU.entity_id = GE.entity_id \
+INNER JOIN guacamole_connection_permission GCP ON GCP.entity_id = GE.entity_id \
+INNER JOIN guacamole_connection GC ON GC.connection_id = GCP.connection_id AND GC.protocol = 'rdp' \
+WHERE GE.name ='$AUTHDATA_USER' AND GE.type ='USER' LIMIT 1"`
+    CONN_SRC="mysql"
+  fi
+  HOST=
+  PORT=
+  if [[ "$CONN_SRC" == "mysql" ]]; then
+    mysql -h"$GUACAMOLE_DB_HOST" -u"$GUACAMOLE_DB_USER" -p"$GUACAMOLE_DB_PASS" guac_db -N -s -e "SELECT GCPA.parameter_name,GCPA.parameter_value FROM guacamole_entity GE \
+      INNER JOIN guacamole_user GU ON GU.entity_id = GE.entity_id \
+      INNER JOIN guacamole_connection_permission GCP ON GCP.entity_id = GE.entity_id \
+      INNER JOIN guacamole_connection GC ON GC.connection_id = GCP.connection_id \
+      INNER JOIN guacamole_connection_parameter GCPA ON GCPA.connection_id = GC.connection_id \
+      WHERE GE.name ='$AUTHDATA_USER' AND GE.type ='USER' AND GCP.connection_id = $CONN_ID AND GC.protocol = 'rdp'" | while read LINE; do
+      PNAME=`echo "$LINE" | sed "s/\t.*//g"`
+      PVAL=`echo "$LINE" | sed "s/$PNAME\t//g"`
+      if [[ "$PNAME" == "hostname" ]];
+        HOST="$PVAL"
+      elif [[ "$PNAME" == "port" ]];
+        PORT="$PORT"
+      fi
+    done
+
+    if [ -z "$PORT" ]; then
+      RESULT="$HOST"
+    else
+      RESULT="$HOST:$PORT"
+    fi
+  fi
+else
+  # Apache Guacamole is not valid
+  exit 1
 fi
 
 # 'printf' instead of 'echo' because echo appends '\n'
