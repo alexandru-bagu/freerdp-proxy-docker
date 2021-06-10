@@ -22,7 +22,7 @@ RUN cmake --build . --target install
 FROM ubuntu:20.04
 RUN mkdir -p /root
 COPY --from=0 /usr/local /usr/local
-RUN apt -qq update && apt install -y libssl1.1 mysql-client
+RUN apt -qq update && apt install -y libssl1.1 mysql-client jq curl
 USER root
 WORKDIR /root
 COPY config.ini /root
