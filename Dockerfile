@@ -24,6 +24,5 @@ WORKDIR /root
 COPY config.ini /root
 COPY start.sh /root
 COPY freerdp-external-target-resolve.sh /root/freerdp-external-target-resolve
-RUN winpr-makecert -rdp -path . server
 EXPOSE 3389
 ENTRYPOINT /root/start.sh

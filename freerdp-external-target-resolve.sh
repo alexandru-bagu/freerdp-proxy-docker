@@ -197,7 +197,7 @@ DynamicPassthrough = "$DYNAMIC_PASSTHROUGH"
 
 [Clipboard]
 TextOnly = FALSE
-MaxTextLength = 0
+MaxTextLength = 0 # 0 for no limit.
 
 [GFXSettings]
 DecodeGFX = FALSE
