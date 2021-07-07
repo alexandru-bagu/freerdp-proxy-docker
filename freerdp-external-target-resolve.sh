@@ -61,18 +61,25 @@ if echo "$AUTHDATA_TOKEN" | grep -q "$AUTHTOKEN"; then
   CONN_TYPE=`printf "$CONNDATA" | sed "s/${CONN_ID}_//g" | sed "s/_.*//g"`
   CONN_SRC=`printf "$CONNDATA" | sed "s/${CONN_ID}_${CONN_TYPE}_//g" | sed "s/_.*//g"`
 
-  API_CONNDATA=`curl "$GUACAMOLE_API/api/session/data/$CONN_SRC/connectionGroups/ROOT/tree?token=$AUTHTOKEN" -s`
-  ALLOWED_CONN_IDS="`echo $API_CONNDATA | jq ".childConnections[] .identifier" -r`
-`echo $API_CONNDATA | jq ".childConnectionGroups[] .childConnections[] .identifier" -r`"
-  readarray -t ALLOWED_CONN_IDS_ARRAY <<< "$ALLOWED_CONN_IDS"
+  API_CONNDATA=`curl "$GUACAMOLE_API/session/data/$CONN_SRC/connectionGroups/ROOT/tree?token=$AUTHTOKEN" -s`
+  if [[ "$DEBUG" == "1" ]]; then
+    printf "API_CONNDATA=\"$API_CONNDATA\"\n" >&2
+  fi
+  ALLOWED_CONN_IDS="`echo $API_CONNDATA | jq ".childConnections[] .identifier" -r 2>/dev/null`
+`echo $API_CONNDATA | jq ".childConnectionGroups[] .childConnections[] .identifier" -r 2>/dev/null`"
+  ALLOWED_CONN_IDS="`echo "$ALLOWED_CONN_IDS" | sed '/^$/d' | tr '\n' ' '`"
+  if [[ "$DEBUG" == "1" ]]; then
+    printf "ALLOWED_CONN_IDS=\"$ALLOWED_CONN_IDS\"\n" >&2
+  fi
+
+  read -a ALLOWED_CONN_IDS_ARRAY <<< "$ALLOWED_CONN_IDS"
 
   if [[ "$CONN_ID" == "0" ]]; then # select first allowed connection
     CONN_ID="${ALLOWED_CONN_IDS_ARRAY[0]}"
-    CONN_SRC="mysql"
   fi
 
   VALID=0
-  for FOR_CONN_ID in "${ALLOWED_CONN_IDS[@]}"
+  for FOR_CONN_ID in "${ALLOWED_CONN_IDS_ARRAY[@]}"
   do
     if [ "$FOR_CONN_ID" == "$CONN_ID" ]; then
       VALID=1
@@ -80,6 +87,9 @@ if echo "$AUTHDATA_TOKEN" | grep -q "$AUTHTOKEN"; then
   done
 
   if [ "$VALID" == "0" ]; then
+    if [[ "$DEBUG" == "1" ]]; then
+      printf "CONNECTION NOT ALLOWED FOR USER: $CONN_ID; ALLOWED: $ALLOWED_CONN_IDS\n" >&2
+    fi
     exit 1
   fi
 
@@ -124,7 +134,6 @@ else
   exit 1
 fi
 
-
 STATIC_PASSTHROUGH=""
 DYNAMIC_PASSTHROUGH=""
 
@@ -140,6 +149,9 @@ fi
 if [[ "$USB_REDIRECT_ENABLED" == "true" ]]; then
   DYNAMIC_PASSTHROUGH="URBDRC,$DYNAMIC_PASSTHROUGH"
 fi
+
+STATIC_PASSTHROUGH="`echo "$STATIC_PASSTHROUGH" | sed s/,$//g`"
+DYNAMIC_PASSTHROUGH="`echo "$DYNAMIC_PASSTHROUGH" | sed s/,$//g`"
 
 cat <<EOF
 [Server]

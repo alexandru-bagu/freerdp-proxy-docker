@@ -1,0 +1,14 @@
+version: "3.3"
+services:
+  proxy:
+    build: ./
+    ports:
+      - "3389:3389"
+    restart: "unless-stopped"
+    environment:
+      - GUACAMOLE_API=https://guacamole/api
+      - GUACAMOLE_DB_HOST=host.docker.internal
+      - GUACAMOLE_DB_USER=guac_adm
+      - GUACAMOLE_DB_PASS=guacamole
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
