@@ -38,7 +38,8 @@ if [[ "$DEBUG" == "1" ]]; then
 fi
 
 # returning an invalid name will effectively disable the connection
-RESULT=
+TARGET_IP=CustomHost
+TARGET_PORT=3389
 
 # extract Apache Guacamole Auth Token and Connection Token from Routing Token:
 # example: "Auth: DEEFDCE0375390C69608BBE85435AE419CB3D8F763D34B3858A7E527B3AC9904; Conn: MQBjAG15c3Fs;"
@@ -60,17 +61,35 @@ if echo "$AUTHDATA_TOKEN" | grep -q "$AUTHTOKEN"; then
   CONN_TYPE=`printf "$CONNDATA" | sed "s/${CONN_ID}_//g" | sed "s/_.*//g"`
   CONN_SRC=`printf "$CONNDATA" | sed "s/${CONN_ID}_${CONN_TYPE}_//g" | sed "s/_.*//g"`
 
+  API_CONNDATA=`curl "$GUACAMOLE_API/api/session/data/$CONN_SRC/connectionGroups/ROOT/tree?token=$AUTHTOKEN" -s`
+  ALLOWED_CONN_IDS="`echo $API_CONNDATA | jq ".childConnections[] .identifier" -r`
+`echo $API_CONNDATA | jq ".childConnectionGroups[] .childConnections[] .identifier" -r`"
+  readarray -t ALLOWED_CONN_IDS_ARRAY <<< "$ALLOWED_CONN_IDS"
+
   if [[ "$CONN_ID" == "0" ]]; then # select first allowed connection
-    CONN_ID=`mysql -h"$GUACAMOLE_DB_HOST" -u"$GUACAMOLE_DB_USER" -p"$GUACAMOLE_DB_PASS" guac_db -N -s -e "SELECT GC.connection_id FROM guacamole_entity GE \
-INNER JOIN guacamole_user GU ON GU.entity_id = GE.entity_id \
-INNER JOIN guacamole_connection_permission GCP ON GCP.entity_id = GE.entity_id \
-INNER JOIN guacamole_connection GC ON GC.connection_id = GCP.connection_id AND GC.protocol = 'rdp' \
-WHERE GE.name ='$AUTHDATA_USER' AND GE.type ='USER' LIMIT 1"`
+    CONN_ID="${ALLOWED_CONN_IDS_ARRAY[0]}"
     CONN_SRC="mysql"
+  fi
+
+  VALID=0
+  for FOR_CONN_ID in "${ALLOWED_CONN_IDS[@]}"
+  do
+    if [ "$FOR_CONN_ID" == "$CONN_ID" ]; then
+      VALID=1
+    fi
+  done
+
+  if [ "$VALID" == "0" ]; then
+    exit 1
   fi
 
   CONN_HOST=
   CONN_PORT=
+  CLIPBOARD_DISABLED=false
+  SHARED_DRIVES_ENABLED=false
+  PRINTING_ENABLED=false
+  PNP_ENABLED=true
+  USB_REDIRECT_ENABLED=true
   if [[ "$CONN_SRC" == "mysql" ]]; then
     while read LINE; do
       PNAME=`printf "$LINE" | sed "s/\t.*//g"`
@@ -79,19 +98,25 @@ WHERE GE.name ='$AUTHDATA_USER' AND GE.type ='USER' LIMIT 1"`
         CONN_HOST="$PVAL"
       elif [[ "$PNAME" == "port" ]]; then
         CONN_PORT="$PVAL"
+      elif [[ "$PNAME" == "disable-copy" ]] && [[ "$PVAL" == "true" ]]; then
+        CLIPBOARD_DISABLED="$PVAL"
+      elif [[ "$PNAME" == "disable-paste" ]] && [[ "$PVAL" == "true" ]]; then
+        CLIPBOARD_DISABLED="$PVAL"
+      elif [[ "$PNAME" == "enable-drive" ]] && [[ "$PVAL" == "true" ]]; then
+        SHARED_DRIVES_ENABLED="$PVAL"
+      elif [[ "$PNAME" == "enable-printing" ]] && [[ "$PVAL" == "true" ]]; then
+        PRINTING_ENABLED="$PVAL"
       fi
-    done <<< "`mysql -h"$GUACAMOLE_DB_HOST" -u"$GUACAMOLE_DB_USER" -p"$GUACAMOLE_DB_PASS" guac_db -N -s -e \"SELECT GCPA.parameter_name,GCPA.parameter_value FROM guacamole_entity GE \
-      INNER JOIN guacamole_user GU ON GU.entity_id = GE.entity_id \
-      INNER JOIN guacamole_connection_permission GCP ON GCP.entity_id = GE.entity_id \
-      INNER JOIN guacamole_connection GC ON GC.connection_id = GCP.connection_id \
-      INNER JOIN guacamole_connection_parameter GCPA ON GCPA.connection_id = GC.connection_id \
-      WHERE GE.name ='$AUTHDATA_USER' AND GE.type ='USER' AND GCP.connection_id = $CONN_ID AND GC.protocol = 'rdp'\"`"
+    done <<< "`mysql -h"$GUACAMOLE_DB_HOST" -u"$GUACAMOLE_DB_USER" -p"$GUACAMOLE_DB_PASS" guac_db -N -s -e \"SELECT GCPA.parameter_name,GCPA.parameter_value FROM guacamole_connection_parameter GCPA \
+      INNER JOIN guacamole_connection GC ON GC.connection_id = GCPA.connection_id \
+      WHERE GCPA.connection_id = $CONN_ID AND GC.protocol = 'rdp'\"`"
     #`
 
     if [ -z "$CONN_PORT" ]; then
-      RESULT="$CONN_HOST"
+      TARGET_IP="$CONN_HOST"
     else
-      RESULT="$CONN_HOST:$CONN_PORT"
+      TARGET_IP="$CONN_HOST"
+      TARGET_PORT="$CONN_PORT"
     fi
   fi
 else
@@ -99,10 +124,69 @@ else
   exit 1
 fi
 
-    
-if [[ "$DEBUG" == "1" ]]; then
-    printf "Result=$RESULT\n" >&2
+
+STATIC_PASSTHROUGH=""
+DYNAMIC_PASSTHROUGH=""
+
+if [[ "$SHARED_DRIVES_ENABLED" == "true" ]] || [[ "$PRINTING_ENABLED" == "true" ]]; then
+  STATIC_PASSTHROUGH="rdpdr,$STATIC_PASSTHROUGH"
+fi
+if [[ "$PRINTING_ENABLED" == "true" ]]; then
+  DYNAMIC_PASSTHROUGH="XPSRD,$DYNAMIC_PASSTHROUGH"
+fi
+if [[ "$PNP_ENABLED" == "true" ]] || [[ "$USB_REDIRECT_ENABLED" == "true" ]]; then
+  DYNAMIC_PASSTHROUGH="PNPDR,$DYNAMIC_PASSTHROUGH"
+fi
+if [[ "$USB_REDIRECT_ENABLED" == "true" ]]; then
+  DYNAMIC_PASSTHROUGH="URBDRC,$DYNAMIC_PASSTHROUGH"
 fi
 
-# 'printf' instead of 'echo' because echo appends '\n'
-printf "$RESULT"
+cat <<EOF
+[Server]
+Host = NONE
+Port = NONE
+
+[Target]
+FixedTarget = TRUE
+Host = $TARGET_IP
+Port = $TARGET_PORT
+
+[Input]
+Mouse = TRUE
+Keyboard = TRUE
+
+[Security]
+ServerTlsSecurity = TRUE
+ServerRdpSecurity = FALSE
+ClientTlsSecurity = TRUE
+ClientRdpSecurity = FALSE
+ClientNlaSecurity = TRUE
+ClientAllowFallbackToTls = TRUE
+
+[Channels]
+GFX = TRUE
+DisplayControl = TRUE
+Clipboard = `if [[ "$CLIPBOARD_DISABLED" == "true" ]]; then echo "FALSE"; else echo "TRUE"; fi`
+AudioOutput = TRUE
+RemoteApp = TRUE
+
+; a list of comma seperated static channels that will be proxied
+; "rdpdr": [MS-RDPEFS] support for remote/shared file system
+StaticPassthrough = "$STATIC_PASSTHROUGH"
+
+; a list of comma seperated dynamic channels that will be proxied
+; "PNPDR": [MS-RDPEPNP] support for plug'n'play devices 
+; "FileRedirectorChannel": [MS-RDPEPNP] passthrough file redirection for PNPDR
+; "URBDRC": [MS-RDPEUSB] support for usb redirection; requires PNPDR
+; "XPSRD": [MS-RDPEXPS] support for printers; available with rdpdr
+; "RDCamera_Device_Enumerator": [MS-RDPECAM] support for remote video capture devices
+; "RDCamera_Device_0": [MS-RDPECAM]
+DynamicPassthrough = "$DYNAMIC_PASSTHROUGH"
+
+[Clipboard]
+TextOnly = FALSE
+MaxTextLength = 0
+
+[GFXSettings]
+DecodeGFX = FALSE
+EOF
