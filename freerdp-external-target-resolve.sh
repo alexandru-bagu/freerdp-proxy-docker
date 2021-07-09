@@ -50,7 +50,13 @@ CONNTOKEN=`echo "$RoutingToken" | grep -P 'Conn: (.*)+;' -o | sed "s/Conn: //g" 
 # validate Apache Guacamole Auth Token:
 AUTHDATA=`curl "$GUACAMOLE_API/tokens" --data "token=$AUTHTOKEN" -s`
 AUTHDATA_TOKEN=`echo "$AUTHDATA" | jq -r ".authToken"`
-if echo "$AUTHDATA_TOKEN" | grep -q "$AUTHTOKEN"; then
+
+if [[ "$DEBUG" == "1" ]]; then
+  printf "AUTHDATA=\"$AUTHDATA\"\n" >&2
+  printf "AUTHDATA_TOKEN=\"$AUTHDATA_TOKEN\"\n" >&2
+fi
+
+if ! [ -z "$AUTHDATA_TOKEN" ] && [[ "$AUTHDATA_TOKEN" == "$AUTHTOKEN" ]] ; then
   AUTHDATA_USER=`echo "$AUTHDATA" | jq -r ".username"`
   CONNDATA=`printf "$CONNTOKEN" | base64 -d | tr "\\0" "_"`
   CONN_ID=`printf "$CONNDATA" | sed "s/_.*//g"`
