@@ -20,7 +20,7 @@ GUACAMOLE_DB_HOST="${GUACAMOLE_DB_HOST:-}"
 GUACAMOLE_DB_USER="${GUACAMOLE_DB_USER:-}"
 GUACAMOLE_DB_PASS="${GUACAMOLE_DB_PASS:-}"
 
-DEBUG=0
+DEBUG="${ExternalDebug:-0}"
 
 if [[ "$DEBUG" == "1" ]]; then
   printf "Username=$Username\n" >&2 
