@@ -56,7 +56,12 @@ if [[ "$DEBUG" == "1" ]]; then
   printf "AUTHDATA_TOKEN=\"$AUTHDATA_TOKEN\"\n" >&2
 fi
 
-if ! [ -z "$AUTHDATA_TOKEN" ] && [[ "$AUTHDATA_TOKEN" == "$AUTHTOKEN" ]] ; then
+if [ -z "$AUTHDATA_TOKEN" ] || [[ "$AUTHDATA_TOKEN" == "null" ]]; then
+  # Apache Guacamole Auth token is not valid
+  printf "INVALID AUTHENTICATION DATA\n" >&2
+  printf 'invalid data'
+  exit 1
+elif [[ "$AUTHDATA_TOKEN" == "$AUTHTOKEN" ]]; then
   AUTHDATA_USER=`echo "$AUTHDATA" | jq -r ".username"`
   CONNDATA=`printf "$CONNTOKEN" | base64 -d | tr "\\0" "_"`
   CONN_ID=`printf "$CONNDATA" | sed "s/_.*//g"`
@@ -135,9 +140,6 @@ if ! [ -z "$AUTHDATA_TOKEN" ] && [[ "$AUTHDATA_TOKEN" == "$AUTHTOKEN" ]] ; then
       TARGET_PORT="$CONN_PORT"
     fi
   fi
-else
-  # Apache Guacamole Auth token is not valid
-  exit 1
 fi
 
 STATIC_PASSTHROUGH=""
