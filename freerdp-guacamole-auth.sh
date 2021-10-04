@@ -20,7 +20,7 @@ GUACAMOLE_DB_HOST="${GUACAMOLE_DB_HOST:-}"
 GUACAMOLE_DB_USER="${GUACAMOLE_DB_USER:-}"
 GUACAMOLE_DB_PASS="${GUACAMOLE_DB_PASS:-}"
 
-DEBUG="${ExternalDebug:-0}"
+DEBUG="${DEBUG:-0}"
 
 if [[ "$DEBUG" == "1" ]]; then
   printf "Username=$Username\n" >&2 
@@ -142,71 +142,65 @@ elif [[ "$AUTHDATA_TOKEN" == "$AUTHTOKEN" ]]; then
   fi
 fi
 
-STATIC_PASSTHROUGH=""
-DYNAMIC_PASSTHROUGH=""
+# a list of comma seperated static channels that will be proxied
+# "rdpdr": [MS-RDPEFS] support for remote/shared file system
+# "PNPDR": [MS-RDPEPNP] support for plug'n'play devices 
+# "URBDRC": [MS-RDPEUSB] support for usb redirection; requires PNPDR
+# "XPSRD": [MS-RDPEXPS] support for printers; available with rdpdr
+# "RDCamera_Device_Enumerator": [MS-RDPECAM] support for remote video capture devices
+# "RDCamera_Device_0": [MS-RDPECAM]
+# "FileRedirectorChannel": [MS-RDPEPNP] passthrough file redirection for PNPDR
 
-if [[ "$SHARED_DRIVES_ENABLED" == "true" ]] || [[ "$PRINTING_ENABLED" == "true" ]]; then
-  STATIC_PASSTHROUGH="rdpdr,$STATIC_PASSTHROUGH"
+CHANNEL_BLACKLIST=""
+
+if ! ( [[ "$SHARED_DRIVES_ENABLED" == "true" ]] || [[ "$PRINTING_ENABLED" == "true" ]] ); then
+  CHANNEL_BLACKLIST="rdpdr,$CHANNEL_BLACKLIST"
 fi
-if [[ "$PRINTING_ENABLED" == "true" ]]; then
-  DYNAMIC_PASSTHROUGH="XPSRD,$DYNAMIC_PASSTHROUGH"
+if ! ( [[ "$PRINTING_ENABLED" == "true" ]] ); then
+  CHANNEL_BLACKLIST="XPSRD,$CHANNEL_BLACKLIST"
 fi
-if [[ "$PNP_ENABLED" == "true" ]] || [[ "$USB_REDIRECT_ENABLED" == "true" ]]; then
-  DYNAMIC_PASSTHROUGH="PNPDR,$DYNAMIC_PASSTHROUGH"
+if ! ( [[ "$PNP_ENABLED" == "true" ]] || [[ "$USB_REDIRECT_ENABLED" == "true" ]] ); then
+  CHANNEL_BLACKLIST="PNPDR,$CHANNEL_BLACKLIST"
 fi
-if [[ "$USB_REDIRECT_ENABLED" == "true" ]]; then
-  DYNAMIC_PASSTHROUGH="URBDRC,$DYNAMIC_PASSTHROUGH"
+if ! ( [[ "$USB_REDIRECT_ENABLED" == "true" ]] ); then
+  CHANNEL_BLACKLIST="URBDRC,$CHANNEL_BLACKLIST"
 fi
 
-STATIC_PASSTHROUGH="`echo "$STATIC_PASSTHROUGH" | sed s/,$//g`"
-DYNAMIC_PASSTHROUGH="`echo "$DYNAMIC_PASSTHROUGH" | sed s/,$//g`"
+CHANNEL_BLACKLIST="`echo "$CHANNEL_BLACKLIST" | sed s/,$//g`"
 
 cat <<EOF
-[Server]
-Host = NONE
-Port = NONE
-
 [Target]
-FixedTarget = TRUE
 Host = $TARGET_IP
 Port = $TARGET_PORT
-
-[Input]
-Mouse = TRUE
-Keyboard = TRUE
-
-[Security]
-ServerTlsSecurity = TRUE
-ServerRdpSecurity = FALSE
-ClientTlsSecurity = TRUE
-ClientRdpSecurity = FALSE
-ClientNlaSecurity = TRUE
-ClientAllowFallbackToTls = TRUE
+FixedTarget=true
 
 [Channels]
-GFX = TRUE
-DisplayControl = TRUE
-Clipboard = `if [[ "$CLIPBOARD_DISABLED" == "true" ]]; then echo "FALSE"; else echo "TRUE"; fi`
-AudioOutput = TRUE
-RemoteApp = TRUE
+GFX=true
+DisplayControl=true
+Clipboard=`if [[ "$CLIPBOARD_DISABLED" == "false" ]]; then echo "FALSE"; else echo "true"; fi`
+AudioInput=true
+AudioOutput=true
+DeviceRedirection=true
+VideoRedirection=true
+CameraRedirection=true
+RemoteApp=true
+PassthroughIsBlacklist=true
+Passthrough=$CHANNEL_BLACKLIST
 
-; a list of comma seperated static channels that will be proxied
-; "rdpdr": [MS-RDPEFS] support for remote/shared file system
-StaticPassthrough = "$STATIC_PASSTHROUGH"
-
-; a list of comma seperated dynamic channels that will be proxied
-; "PNPDR": [MS-RDPEPNP] support for plug'n'play devices 
-; "FileRedirectorChannel": [MS-RDPEPNP] passthrough file redirection for PNPDR
-; "URBDRC": [MS-RDPEUSB] support for usb redirection; requires PNPDR
-; "XPSRD": [MS-RDPEXPS] support for printers; available with rdpdr
-; "RDCamera_Device_Enumerator": [MS-RDPECAM] support for remote video capture devices
-; "RDCamera_Device_0": [MS-RDPECAM]
-DynamicPassthrough = "$DYNAMIC_PASSTHROUGH"
+[Input]
+Keyboard=true
+Mouse=true
+Multitouch=true
 
 [Clipboard]
-TextOnly = FALSE
-MaxTextLength = 0 # 0 for no limit.
+TextOnly=false
+MaxTextLength=0
 
 [GFXSettings]
-DecodeGFX = FALSE
+DecodeGFX=false
+
+[Certificates]
+CertificateContent=NONE
+PrivateKeyContent=NONE
+RdpKeyContent=NONE
 EOF
