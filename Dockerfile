@@ -22,6 +22,6 @@ COPY --from=0 /usr/local /usr/local
 RUN winpr-makecert -silent -path certificates -n rdp-server -y 10
 RUN winpr-makecert -silent -path certificates -n rdp-private
 COPY config.ini /root
-COPY freerdp-static-auth.sh /root/freerdp-proxy-authentication
+COPY freerdp-guacamole-auth.sh /root/freerdp-proxy-authentication
 EXPOSE 3389
 ENTRYPOINT /usr/local/bin/freerdp-proxy config.ini
