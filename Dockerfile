@@ -19,9 +19,8 @@ WORKDIR /root
 RUN apt -qq update && apt install -y libssl1.1 mysql-client jq curl
 RUN apt install -y libasan6 llvm
 COPY --from=0 /usr/local /usr/local
-RUN winpr-makecert -silent -path certificates -n rdp-server -y 10
-RUN winpr-makecert -silent -path certificates -n rdp-private
 COPY config.ini /root
 COPY freerdp-guacamole-auth.sh /root/freerdp-proxy-authentication
+COPY entrypoint.sh /root/entrypoint.sh
 EXPOSE 3389
-ENTRYPOINT /usr/local/bin/freerdp-proxy config.ini
+ENTRYPOINT /bin/bash entrypoint.sh
