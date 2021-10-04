@@ -17,7 +17,6 @@ USER root
 RUN mkdir -p /root
 WORKDIR /root
 RUN apt -qq update && apt install -y libssl1.1 mysql-client jq curl
-RUN apt install -y libasan6 llvm
 COPY --from=0 /usr/local /usr/local
 COPY config.ini /root
 COPY freerdp-guacamole-auth.sh /root/freerdp-proxy-authentication
