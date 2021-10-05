@@ -5,7 +5,11 @@ services:
     ports:
       - "3389:3389"
     restart: "unless-stopped"
+    volumes:
+      - /some/certificate/path:/external
     environment:
+      - CERTIFICATE_CRT=/external/cert.crt
+      - CERTIFICATE_KEY=/external/cert.key
       - GUACAMOLE_API=https://guacamole/api
       - GUACAMOLE_DB_HOST=host.docker.internal
       - GUACAMOLE_DB_USER=guac_adm
