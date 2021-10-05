@@ -7,7 +7,7 @@ RUN apt -qq update && apt install -y ninja-build build-essential debhelper cdbs 
 RUN mkdir /build
 RUN git clone https://github.com/alexandru-bagu/FreeRDP /build/FreeRDP
 WORKDIR /build/FreeRDP
-RUN git fetch; git checkout f3c6b5ea08ccacb7ca30780b1e18fb2f85a58733 
+RUN git fetch; git checkout f2684932776b23ec5161f808a01833adabd4a528 
 RUN cmake -DCHANNEL_URBDRC=OFF -DWITH_PROXY=ON -DWITH_SHADOW=OFF -DWITH_SERVER=ON -DBUILD_SHARED_LIBS=ON
 RUN cmake --build . -j 16
 RUN cmake --build . --target install
