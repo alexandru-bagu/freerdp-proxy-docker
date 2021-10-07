@@ -10,9 +10,3 @@ services:
     environment:
       - CERTIFICATE_CRT=/external/cert.crt
       - CERTIFICATE_KEY=/external/cert.key
-      - GUACAMOLE_API=https://guacamole/api
-      - GUACAMOLE_DB_HOST=host.docker.internal
-      - GUACAMOLE_DB_USER=guac_adm
-      - GUACAMOLE_DB_PASS=guacamole
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
