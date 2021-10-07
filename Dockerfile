@@ -19,7 +19,7 @@ WORKDIR /root
 RUN apt -qq update && apt install -y libssl1.1 mysql-client jq curl
 COPY --from=0 /usr/local /usr/local
 COPY config.ini /root
-COPY freerdp-guacamole-auth.sh /root/freerdp-proxy-authentication
+COPY freerdp-static-auth.sh /root/freerdp-proxy-authentication
 COPY entrypoint.sh /root/entrypoint.sh
 EXPOSE 3389
 ENTRYPOINT /bin/bash entrypoint.sh
