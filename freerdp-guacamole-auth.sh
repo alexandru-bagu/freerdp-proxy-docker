@@ -177,7 +177,7 @@ FixedTarget=true
 [Channels]
 GFX=true
 DisplayControl=true
-Clipboard=`if [[ "$CLIPBOARD_DISABLED" == "false" ]]; then echo "FALSE"; else echo "true"; fi`
+Clipboard=`if [[ "$CLIPBOARD_DISABLED" == "true" ]]; then echo "false"; else echo "true"; fi`
 AudioInput=true
 AudioOutput=true
 DeviceRedirection=true
@@ -203,4 +203,13 @@ DecodeGFX=false
 CertificateContent=NONE
 PrivateKeyContent=NONE
 RdpKeyContent=NONE
+
+[Security]
+ServerTlsSecurity=true
+ServerNlaSecurity=false
+ServerRdpSecurity=true
+ClientTlsSecurity=true
+ClientNlaSecurity=true
+ClientRdpSecurity=true
+ClientAllowFallbackToTls=true
 EOF
